@@ -1,0 +1,11 @@
+{
+  "name": "skozy",
+  "private": true,
+  "version": "0.0.1",
+  "description": "skozy",
+  "dependencies": {
+    "async"  : "*",
+    "request": "*",
+    "restify": "*"
+  }
+}

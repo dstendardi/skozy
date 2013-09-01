@@ -1,0 +1,124 @@
+#!/bin/bash
+# Argument = -b build
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+This script build docker images dependencies.
+
+OPTIONS:
+   -h      Show this message
+   -b      Build all images located in docker directory
+   -r      Run all images located in docker directory
+   -n      Create network so the containers can see each other
+   -c      Destroy all running containers
+EOF
+}
+
+
+clean()
+{
+  echo -e "\e[32mDestroying instance :\e[90m"
+  i=0;
+  for instance in `docker ps -q` 
+  do
+    docker stop $instance
+  done
+  echo -e "\e[0m"  
+}
+
+#!/bin/bash
+
+# getopts example
+
+build=
+run=
+network=
+clean=
+while getopts brnc flag; do
+  case $flag in
+    h)
+      usage
+      exit;
+      ;;
+    b)
+      build=1
+      ;;
+    r)
+      run=1
+      ;;
+    n)
+      network=1
+      ;;
+    c)
+      clean=1
+      ;;
+    ?)
+      usage
+      exit;
+      ;;
+  esac
+done
+
+if [[ 1 = $build ]]
+then
+  for image in `ls docker` 
+  do
+    clean
+    image=`basename $image`
+    docker build -t $image - < docker/$image
+  done
+  exit 1
+fi
+
+if [[ 1 -eq $run ]]
+then
+  clean
+
+  echo -e "\e[32mRuning containers :\e[90m"
+
+  for image in elasticsearch rexster 
+  do
+    docker run -h $image -d -t `basename $image`
+  done
+  
+  here=`pwd`/server
+  docker run -v $here:$here -w $here -i -t nodejs npm install
+  docker run -v $here:$here -w $here -d -t nodejs node-dev app.js
+  
+  echo -e "\e[0m"
+
+  echo -e "\e[32mContainers started :\e[90m"
+  docker ps
+  echo -e "\e[0m"
+fi
+
+if [[ 1 = $clean ]] 
+then
+  clean
+fi;
+
+
+if [[ 1 = $network ]]
+then
+  sleep 4;
+  echo -e "\e[32mWiring containers :\e[90m"
+  i=1
+  for instance in `docker ps -q`
+  do
+    ip=192.168.1.$i
+    echo "assign ip $ip to $instance"
+    ./bin/pipework br1 $instance $ip
+    i=$((i+1))
+  done
+  echo -e "joining bridge"
+  ifconfig br1 192.168.1.254
+
+  echo -e "\e[0m"       
+fi
+
+exit 1;
+
+
